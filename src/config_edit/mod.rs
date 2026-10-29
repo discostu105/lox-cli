@@ -307,7 +307,12 @@ impl ConfigEditor {
     /// them on write-back.
     pub fn load(data: &[u8]) -> Result<Self> {
         let had_bom = data.starts_with(UTF8_BOM);
-        let had_crlf = data.windows(2).any(|w| w == b"\r\n");
+        // The file's line ending is the XML declaration's. Attribute values carry their
+        // own line breaks (CRLF in AutoPilot rule JSON) and must not decide it.
+        let had_crlf = data
+            .iter()
+            .position(|&b| b == b'\n')
+            .is_some_and(|i| i > 0 && data[i - 1] == b'\r');
         let xml_data = if had_bom { &data[3..] } else { data };
 
         let (xml_data_cow, digit_attr_renames) = Self::sanitize_digit_attrs(xml_data);
@@ -1465,6 +1470,19 @@ mod tests {
         let output = editor.to_bytes().unwrap();
         let output_str = String::from_utf8(output).unwrap();
         assert!(output_str.contains("\r\n"));
+    }
+
+    #[test]
+    fn test_crlf_inside_attribute_does_not_make_lf_file_crlf() {
+        // An LF file whose only CRLF sits inside an attribute value (AutoPilot rule JSON).
+        let xml_str = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<ControlList Version=\"1\">\n\t<C U=\"a\" APC=\"{&quot;x&quot;:1,\r\n&quot;y&quot;:2}\"/>\n</ControlList>\n";
+        let editor = ConfigEditor::load(xml_str.as_bytes()).unwrap();
+        assert!(!editor.had_crlf);
+        let output_str = String::from_utf8(editor.to_bytes().unwrap()).unwrap();
+        assert!(output_str.starts_with(
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<ControlList Version=\"1\">\n\t<C "
+        ));
+        assert!(output_str.ends_with("/>\n</ControlList>\n"));
     }
 
     // ── Wire edge cases ──────────────────────────────────────────────────

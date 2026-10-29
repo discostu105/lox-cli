@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Writing a `.Loxone` file keeps the file's own line endings. They are now taken from the XML declaration line; before, a single CRLF inside any attribute value (AutoPilot rule JSON) made the editor treat an LF file as CRLF and convert every line of it.
+
 ## [0.14.2] — 2026-05-08
 
 ### Fixed
